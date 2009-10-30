@@ -1,0 +1,3 @@
+sendNews est un script sans prétention développé pour l'expédition d'une lettre d'information et l'analyse des « bounces ».
+
+Il n'est bien entendu pas destiné à spammer la planète mais bien à réaliser simplement un mass mailing à vos abonnés via une machine sur laquelle PHP 5 est disponible en version CLI. Il est distribué sous Licence GNU/GPL.
