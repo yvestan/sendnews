@@ -1,0 +1,477 @@
+#!/usr/bin/php
+<?php
+
+// on supprime la limite d'execution d'un script php
+set_time_limit(0);
+
+/* vim: set expandtab tabstop=4 shiftwidth=4 softtabstop=4: */
+
+/**
+ * sendNews : Envoi d'une lettre d'information
+ *
+ * PHP versions 5
+ *
+ * LICENSE: Ce programme est un logiciel libre distribue sous licence GNU/GPL
+ *
+ * @author     Yves Tannier <yves SANSPAM grafactory.net>
+ * @author     Laurent Monin <laurent.monin SPAMASS theatre-contemporain.net>
+ * @copyright  2008 C.R.I.S
+ * @license    http://www.gnu.org/copyleft/lesser.html  LGPL License 2.1
+ * @version    0.7.1
+ * @link       http://www.grafactory.net
+ */
+
+// aide contextuelle
+$help_string = "Parametres :
+                -c= : fichier de configuration a utiliser (a mettre dans le repertoire conf)
+                -e  : lancer l'envoi de la lettre d'information
+                -S= : sujet du message
+                -f= : fichier HTML qui compose le message
+                -l= : nombre maximum de messages a envoyer
+                -n  : n'envoie pas les messages mais modifie le champ envoye (test seulement)
+                -N  : ne modifie pas le champ envoye (test seulement)
+                -q  : retourne le nombre de destinataires (non envoye)
+                -r  : remettre le flag 'envoye' des utilisateurs a zero
+                -s  : mode silencieux (envoi seulement un message de debut et de fin de traitement)
+
+                -L= : numéro de la liste (fonctionnalite pour PHPList)
+
+                -t  : tester uniquement (envoi un message de test ou montre seulement les bounces sans les marquer et les supprimer)
+                -h, --help : afficher cette aide...\n\n";
+
+// repertoire du script
+$dir_name = dirname(__FILE__);
+
+// recuperer les parametres passe en CLI
+foreach($_SERVER['argv'] as $param) {
+    // pour le fichier de configuration
+    if(strpos($param,'c=')) {
+        $configfile = str_replace('-c=','',$param).'.php';
+        continue;
+    }
+    // pour le fichier html passe en parametre
+    if(strpos($param,'f=')) {
+        $defaut_file = trim(str_replace('-f=','',$param));
+        continue;
+    }
+    // pour le numéro de la liste (fonctionnalités PHPList)
+    if(strpos($param,'L=')) {
+        $num_list = str_replace('-L=','',$param);
+        continue;
+    }
+    // pour le sujet du message
+    if(strpos($param,'S=')) {
+        $subject_msg = str_replace('-S=','',$param);
+        $subject_msg = str_replace('\'','',$subject_msg);
+        continue;
+    }  
+    // pour le lien "text-only" TODO
+    if(strpos($param,'T=')) {
+        $subject_msg = str_replace('-S=','',$param);
+        $subject_msg = str_replace('\'','',$subject_msg);
+        continue;
+    }
+    // pour le nombre d'envoi
+    if(strpos($param,'l=')) {
+        $limit= (int)(str_replace('-l=','',$param));
+        if ($limit < 1) $limit=1;
+        continue;
+    }
+
+    switch($param) {
+      case '-s' :
+        $silent = true;
+        break;
+      case '-e' :
+        $execute = true;
+        break;
+      case '-r' :
+        $renew = true;
+        break;
+      case '-t' :
+        $testsend = true;
+        break;
+      case '-n':
+        $nosend = true;
+        break;
+      case '-N':
+        $noupdate = true;
+        break;
+      case '-b' :
+        $bounce = true;
+        break;
+      case '-q' :
+        $query = true;
+        break;
+      case '-h' :
+      case '--help' :
+        echo $help_string;
+        exit();
+      case $_SERVER['SCRIPT_NAME'] :
+        unset ($_SERVER['argv'][0]);
+        break;
+      default :
+        echo "\nParametre inconnu : ".$param."\n\n";
+        exit();
+    }
+}
+
+// pa d'argument
+if (empty($_SERVER['argv'])) {
+    echo "\nVeuillez preciser au moins un parametre !\n\n";
+    echo $help_string;
+    exit();
+}
+
+// pas de fichier de conf
+if(!isset($configfile) || !file_exists($dir_name.'/conf/'.$configfile)) {
+    echo "\nLe fichier de configuration ".$configfile." n'existe pas !\n";
+    exit();
+}
+
+/**
+ * inclure le fichier de configuration
+ */
+include $dir_name.'/conf/'.$configfile;
+
+//  le sujet
+if(!empty($subject_msg)) {
+    $subject = $subject_msg;
+} else {
+    if(empty($subject)) {
+        echo "\nIl n'y a pas de sujet pour ce message !\n";
+        exit();
+    }
+}
+
+// Acces BDD
+try {
+    $db = new PDO(DB_TYPE.':host='.DB_HOST.';dbname='.DB_NAME, DB_USER, DB_PASS);
+} catch (PDOException $e) {
+    die('Connexion error : ' . $e->getMessage() );
+}
+
+function timeExec($start,$end) {
+    $timestamp = abs($end - $start);
+    $diff_heure = floor($timestamp / 3600);
+    $timestamp = $timestamp - ($diff_heure * 3600);
+    $diff_min = $timestamp / 60;
+    return $diff_heure.' heure(s) '.round($diff_min,1).' minute(s)';
+}
+
+function is_email_syntax_valid($email) {
+        // Auteur : bobocop (arobase) bobocop (point) cz
+        // Traduction des commentaires par mathieu
+
+        // Le code suivant est la version du 2 mai 2005 qui respecte les RFC 2822 et 1035
+        // http://www.faqs.org/rfcs/rfc2822.html
+        // http://www.faqs.org/rfcs/rfc1035.html
+
+        $atom   = '[-a-z0-9!#$%&\'*+\\/=?^_`{|}~]';   // caractères autorisés avant l'arobase
+        $domain = '([a-z0-9]([-a-z0-9]*[a-z0-9]+)?)'; // caractères autorisés après l'arobase (nom de domaine)
+                                       
+        $regex = '/^' . $atom . '+' .   // Une ou plusieurs fois les caractères autorisés avant l'arobase
+        '(\.' . $atom . '+)*' .         // Suivis par zéro point ou plus
+                                        // séparés par des caractères autorisés avant l'arobase
+        '@' .                           // Suivis d'un arobase
+        '(' . $domain . '{1,63}\.)+' .  // Suivis par 1 à 63 caractères autorisés pour le nom de domaine
+                                        // séparés par des points
+        $domain . '{2,63}$/i';          // Suivi de 2 à 63 caractères autorisés pour le nom de domaine
+        return preg_match($regex,$email);
+}
+
+
+/**
+ * librairie pour le mail
+ */
+$swiftdir = $dir_name.'/swiftmailer/lib/';
+require $swiftdir.'Swift.php';
+
+// envoi
+if (!$renew && $execute) {
+
+    // si on a precise un fichier HTML
+    if($defaut_file) {
+        echo "Envoi du message avec le fichier HTML ".$defaut_file."\n";
+    } else {
+        if (is_dir(DIR_HTML)) {
+            // parcours du répertoire pour obtenir le dernier fichier place
+            $dir = scandir(DIR_HTML);
+            $files = array();
+            foreach ($dir as $file) {
+                if(is_file(DIR_HTML.$file)) {
+                    if (!preg_match('/^\./', $file)) {
+                       $files['name'][0] = $file;
+                       $files['date'][0] = filemtime(DIR_HTML.$file);
+                    }
+                }
+            }
+
+            //natcasesort($files, SORT_NUMERIC);
+            $defaut_file = $files['name'][0];
+        }
+        // on recupere le nom du fichier HTML
+        fwrite(STDOUT, "Entrez le nom precis du fichier html (defaut : ".$defaut_file.") : ");
+        $file_name = trim(fgets(STDIN));
+
+    } // fin test fichier
+
+    if (empty($file_name)) {
+       $file_name = $defaut_file; 
+    }
+
+    if (strpos($file_name, DIRECTORY_SEPARATOR) === 0 && file_exists($file_name)) {
+        $file = $file_name;
+    } else {
+        $file = DIR_HTML.$file_name;
+    }
+
+    // le mail en HTML depuis la page stockee sur le serveur
+     $msg_html = @file_get_contents($file);
+     if ($msg_html === false) {
+        echo "ECHEC : Le fichier HTML du message n'a pas ete trouve ou n'a pas pu etre ouvert\n";
+        echo "Fichier = ".$file."\n";
+        exit();
+    }
+        
+    // instancie l'objet et la connexion via sendmail ou via mail()
+    // ou precise dans le fichier de configuration
+    if(TYPE_SENDING=='SendMail') {
+        require $swiftdir.'Swift/Connection/Sendmail.php';
+        $swift = new Swift(new Swift_Connection_Sendmail(Swift_Connection_Sendmail::AUTO_DETECT), '['.SERVER_MAIL.']');
+    } elseif(TYPE_SENDING=='Other' && file_exists($dir_name.'/conf/sending.php')) {
+        include $dir_name.'/conf/sending.php';
+    } else {
+        require $swiftdir.'Swift/Connection/NativeMail.php';
+        $swift =& new Swift(new Swift_Connection_NativeMail('-f%s'));
+    }
+
+    // on précise le serveur de mail
+    if(!defined(SERVER_MAIL)) {
+        $swift->setDomain(SERVER_MAIL);
+    }
+
+    // composition du message
+    $message =& new Swift_Message($subject); // instanciation et sujet
+    $message->setReturnPath(SENDER_RETURN); // adresse de retour
+
+    // message en HTML
+    $message->attach(new Swift_Message_Part($msg_html, 'text/html'));
+
+    // ajouter le file_name à la fin de la version txt
+    $message->attach(new Swift_Message_Part($msg_text.$file_name));
+
+    // expediteur
+    $sender_complet =  new Swift_Address(SENDER, SENDER_NAME);
+
+    // si ce n'est pas un test
+    if (!$testsend) {
+        
+        // afaire : tester la taille de la file d'attente
+        // et régler le débit en fonction
+
+        // requete sur la table des utilisateurs
+        $sql = $queries['select'];
+        if (isset($limit)) {
+            $sql .= ' LIMIT '.$limit;
+        }
+        $res = $db->query($sql);
+
+        // nombre de destinataires
+        $num_dest = $res->rowCount();
+
+        if($num_dest>0) {
+            echo "Envoi du message ".$file_name." a ".$num_dest." utilisateurs presents dans la table ".USERS."\n";
+            if (isset($limit)) {
+                echo "** Limite active : ".$limit."\n";
+            }
+        } else {
+            echo "Il n'y a aucun destinataire pour le message ".$file_name.".\n";
+            echo "Avez-vous re-initialise le flag d'envoi ?\n";
+            exit;
+        }
+        if ($nosend) {
+            echo "** Pas d'envoi reel du message (option -n)\n";
+        }
+        if ($noupdate) {
+            echo "** Pas de mise a jour du champ envoye (option -N)\n";
+        }
+
+        echo "\n";
+
+        // initialisation
+        $i = 0;
+        $idvalue = null;
+        $count_success = 0;
+
+        if (!empty($queries['update'])) {
+            // statement pour l'update
+            $sta = $db->prepare($queries['update']);
+            $sta->bindParam(1, $idvalue);
+        }
+
+        // début 
+        $time_start = microtime(true);
+
+        //  boucle
+        while($row = $res->fetch()) {
+
+            if (isset($limit) && $i >= $limit) {
+                break;
+            }
+
+            $email = $row[EMAIL_USERS];
+            $email = strtolower($email);
+            
+            // on verifie la validite syntaxique de l'adresse mail
+            if (!is_email_syntax_valid($email)) {
+                   if(!$silent) {
+                    echo "-> Adresse ".$row[EMAIL_USERS]." ".$row[ID_USERS]." non valide\n";
+                }
+                // TODO : marquer l'email invalide dans la base
+                continue;
+            }
+
+            // la pause (deconnection/reconnection)
+            if (($i % $per_send) == 0 && $i>0) {
+
+                // on deconnecte avant la pause
+                try {
+                    $swift->disconnect();
+                    if(!$silent) {
+                        echo "--> Deconnexion\n";
+                    }
+                } catch (Exception $e) {
+                    if(!$silent) {
+                        echo "--> Deconnexion impossible, arret de l'envoi\n";
+                    }
+                    exit;
+                }
+                
+                if (!$silent) {
+                    echo "==============================> Pause au niveau ".$i." (CTRL+c pour couper le script)\n";
+                }
+
+                for($s=0;$s<$pause_time;$s++) {
+                    if(!$silent) {
+                        echo ".";
+                    }
+                    sleep(1);
+                }
+
+                if(!$silent) {
+                    echo "\n";
+                }
+
+                // on reconnecte apres la pause
+                try {
+                    $swift->connect();
+                    if(!$silent) {
+                        echo "--> Connexion\n";
+                    }
+                } catch (Exception $e) {
+                    if(!$silent) {
+                        echo "--> Connexion impossible, arret de l'envoi\n";
+                    }
+                    exit;
+                }
+            }
+            
+            // on envoie effectivement le message (sauf si option nosend)
+            $success = false;
+            if (empty($nosend)) {
+
+                // faut-il un message personnalisé TODO ?
+                /*if(!empty($sendnews_template)) {
+                    $msg_html = Sendnews_Utils->setTemplateMessage($row);
+                    $message->attach(new Swift_Message_Part($msg_html, 'text/html'));
+
+                }*/
+                $success = $swift->send($message, $email, $sender_complet);
+                // on comptabilise les succes
+                if ($success) $count_success++;
+            }
+
+            if (!$noupdate && !empty($queries['update']) && ($success || $nosend)) {
+                // on met a jour le flag "envoye"
+                $idvalue = $row[ID_USERS];
+                $sta->execute();
+            }
+
+            if (!$silent) {
+                echo "-> Envoi en cours a ".$email." ".$row[ID_USERS]."\n";
+            }
+
+            $i++;
+        }
+
+        // deconnexion
+        $swift->disconnect();
+
+        // fin
+        $time_end = microtime(true);
+
+        // temps d'execution
+        $time_exec = $time_end - $time_start;
+        
+        // fin de l'envoi
+        echo "=======> Envoi termine en ".timeExec($time_start,$time_end)." (".$count_success."/".$i.") !\n";
+
+    }
+
+    // sinon on test l'envoi
+    else {
+
+        fwrite(STDOUT, "Entrez l'adresse de test (par defaut : ".$defaut_send.") : ");
+        $defaut_name = trim(fgets(STDIN));
+
+        if (!empty($defaut_name)) {
+            $defaut_send = $defaut_name;
+        }
+
+        // envoi du message de test
+        if($swift->send($message, $defaut_send, $sender_complet)) {
+            echo "=======> Le message de test a bien ete envoye a ".$defaut_send."\n";
+        } else {
+            echo "ECHEC : Il y a eu un probleme pendant l'envoi du message de test\n";
+        }
+        
+    }
+
+
+}
+
+// on remet le flag d'envoi a 0
+if($renew && !empty($queries['renew'])) {
+    
+    echo "Remise a zero du flag d'envoi\n";
+    
+    echo "Etes-vous sur ? (O/N) : ";
+    $confirm = trim(fgets(STDIN));
+
+    if (strtolower($confirm) == 'o') {
+        $res = $db->query($queries['renew']);
+
+        // nombre de destinataires
+        $count = $res->rowCount();
+        echo "=======> Le flag d'envoi de $count utilisateurs a bien ete reinitialise\n";
+    }
+}
+
+// on compte le nombre des destinataires
+if ($query) {
+
+    $sql = $queries['select'];
+    if (isset($limit)) {
+        $sql .= ' LIMIT '.$limit;
+    }
+
+    $res = $db->query($sql);
+
+    // nombre de destinataires
+    $num_dest = $res->rowCount();
+    
+    echo "$num_dest destinataires\n";
+
+}
+?>

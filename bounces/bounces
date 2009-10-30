@@ -1,0 +1,112 @@
+#!/usr/bin/php
+<?php
+
+if (!isset($configfile)) {
+
+    // aide contextuelle
+    $help_string = "Parametres :
+                -c= : fichier de configuration a utiliser (a mettre dans le repertoire conf)
+                -f  : force l'effacement des messages
+                -u  : efface aussi les messages non reconnus par le traitement de bounces
+                -d  : debug mode
+                -h, --help : afficher cette aide...\n\n";
+
+    // repertoire du script
+    $dir_name = dirname(__FILE__);
+
+    $force = false;
+    $debug = false;
+    $delete_unprocessed=false;
+
+    // recuperer les parametres passe en CLI
+    foreach($_SERVER['argv'] as $param) {
+        // pour le fichier de configuration
+        if(strpos($param,"c=")) {
+            $configfile = str_replace('-c=','',$param).'.php';
+            continue;
+        }
+        
+        switch($param) {
+          case '-f' :
+            $force = true;
+            break;
+          case '-u' :
+            $delete_unprocessed=true;
+            break;
+          case '-d' :
+            $debug = true;
+            break;
+          case '-h' :
+          case '--help' :
+            echo $help_string;
+            exit();
+          case $_SERVER['SCRIPT_NAME'] :
+            unset ($_SERVER['argv'][0]);
+            break;
+          default :
+            echo "\nParametre inconnu : ".$param."\n\n";
+            exit();
+        }
+    }
+
+    // pa d'argument
+    if (empty($_SERVER['argv'])) {
+        echo "\nVeuillez preciser au moins un parametre !\n\n";
+        echo $help_string;
+        exit();
+    }
+
+    // pas de fichier de conf
+    if(!isset($configfile) || !file_exists($dir_name.'/../conf/'.$configfile)) {
+        echo "\nLe fichier de configuration ".$configfile." n'existe pas !\n";
+        exit();
+    }
+
+    /**
+     * inclure le fichier de configuration
+     */
+    include $dir_name.'/../conf/'.$configfile;
+
+    // Acces BDD
+    try {
+        $db = new PDO(DB_TYPE.':host='.DB_HOST.';dbname='.DB_NAME, DB_USER, DB_PASS);
+    } catch (PDOException $e) {
+        die("Connexion error : " . $e->getMessage() );
+    }
+}
+
+
+// appel la lib bmh
+define('LIB_BMH','');
+include LIB_BMH.'bmh.php';
+
+// objet BounceMailHandler
+$bmh = new BounceMailHandler();
+
+
+    
+$bmh->purge_processed = false;
+$bmh->purge_unprocessed = false;
+ 
+if ($force) {
+    $bmh->purge_processed = true;
+    if ($delete_unprocessed) {
+        $bmh->purge_unprocessed = true;
+    }
+}
+
+if ($debug) {
+    $bmh->testmode=true;
+    printf("server=%s user=%s pass=%s\n",BOUNCE_SERVER,BOUNCE_USER,BOUNCE_PASS);
+} else {
+    $bmh->testmode=false;
+}
+
+$bmh->log_function='logAction';
+$bmh->action_function='bounceAction';
+$bmh->unmatched_function='unmatchedAction';
+
+
+$bmh->openPop3(BOUNCE_SERVER,BOUNCE_USER,BOUNCE_PASS);
+$bmh->processMailbox(BOUNCE_NB);
+?>
