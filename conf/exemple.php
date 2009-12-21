@@ -148,7 +148,7 @@ function unmatchedAction($params)
 }
 */
 
-////// Fonction de personalisation des messages
+///// fonction de personalisation des messages
 
 /**
  *
@@ -159,16 +159,6 @@ function unmatchedAction($params)
  * Attention : vous devez ajouter les champs dans la requête définie dans le array $queries
  *
  * */
-$sendnews_template = array(
-    'lastname' => array(
-        'field' => 's.lastname',
-    ),
-    'firstname' => array(
-        'field' => 's.email',
-    ),
-    'email' => array(
-        'field' => 's.email',
-    ),
-);
+define('TEMPLATE_MSG', true);
 
 ?>
