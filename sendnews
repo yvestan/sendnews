@@ -4,6 +4,10 @@
 // on supprime la limite d'execution d'un script php
 set_time_limit(0);
 
+// erreur
+error_reporting(-1);
+
+
 /* vim: set expandtab tabstop=4 shiftwidth=4 softtabstop=4: */
 
 /**
@@ -22,18 +26,18 @@ set_time_limit(0);
 
 // aide contextuelle
 $help_string = "Parametres :
-                -c= : fichier de configuration a utiliser (a mettre dans le repertoire conf)
+                -c= : fichier de configuration Ã  utiliser (Ã  mettre dans le repertoire conf)
                 -e  : lancer l'envoi de la lettre d'information
                 -S= : sujet du message
                 -f= : fichier HTML qui compose le message
-                -l= : nombre maximum de messages a envoyer
+                -l= : nombre maximum de messages Ã  envoyer
                 -n  : n'envoie pas les messages mais modifie le champ envoye (test seulement)
                 -N  : ne modifie pas le champ envoye (test seulement)
                 -q  : retourne le nombre de destinataires (non envoye)
                 -r  : remettre le flag 'envoye' des utilisateurs a zero
                 -s  : mode silencieux (envoi seulement un message de debut et de fin de traitement)
 
-                -L= : numéro de la liste (fonctionnalite pour PHPList)
+                -L= : numÃ©ro de la liste (fonctionnalite pour PHPList)
 
                 -t  : tester uniquement (envoi un message de test ou montre seulement les bounces sans les marquer et les supprimer)
                 -h, --help : afficher cette aide...\n\n";
@@ -53,7 +57,7 @@ foreach($_SERVER['argv'] as $param) {
         $defaut_file = trim(str_replace('-f=','',$param));
         continue;
     }
-    // pour le numéro de la liste (fonctionnalités PHPList)
+    // pour le numÃ©ro de la liste (fonctionnalitÃ©s PHPList)
     if(strpos($param,'L=')) {
         $num_list = str_replace('-L=','',$param);
         continue;
@@ -153,7 +157,7 @@ if(!empty($subject_msg)) {
     }
 }
 
-// si pas de variable (compatibilité)
+// si pas de variable (compatibilitÃ©)
 if(!defined('TEMPLATE_MSG')) {
     define('TEMPLATE_MSG',false);
 }
@@ -164,9 +168,6 @@ try {
 } catch (PDOException $e) {
     die('Connexion error : ' . $e->getMessage() );
 }
-
-
-
 
 /**
  * librairie pour le mail
@@ -182,7 +183,7 @@ if (empty($renew) && $execute) {
         echo "Envoi du message avec le fichier HTML ".$defaut_file."\n";
     } else {
         if (is_dir(DIR_HTML)) {
-            // parcours du répertoire pour obtenir le dernier fichier place
+            // parcours du rÃ©pertoire pour obtenir le dernier fichier place
             $dir = scandir(DIR_HTML);
             $files = array();
             foreach ($dir as $file) {
@@ -221,7 +222,7 @@ if (empty($renew) && $execute) {
         exit();
     }
 
-    // on essaye de récupérer le même fichier mais en txt
+    // on essaye de rÃ©cupÃ©rer le mÃªme fichier mais en txt
     $file_text = $file.'.txt';
     $msg_textfile = @file_get_contents($file_text);
     if ($msg_textfile !== false && !empty($msg_textfile)) {
@@ -243,7 +244,7 @@ if (empty($renew) && $execute) {
         $swift =& new Swift(new Swift_Connection_NativeMail('-f%s'));
     }
 
-    // on précise le serveur de mail
+    // on prÃ©cise le serveur de mail
     if(!defined(SERVER_MAIL)) {
         $swift->setDomain(SERVER_MAIL);
     }
@@ -259,7 +260,7 @@ if (empty($renew) && $execute) {
         // message en HTML
         $message->attach(new Swift_Message_Part($msg_html, 'text/html'));
 
-        // ajouter le file_name à la fin de la version txt si pas de version txt en fichier
+        // ajouter le file_name Ã  la fin de la version txt si pas de version txt en fichier
         if(!$file_txt) {
             $message->attach(new Swift_Message_Part($msg_text.$file_name));
         } else {
@@ -275,7 +276,7 @@ if (empty($renew) && $execute) {
     if (empty($testsend)) {
         
         // afaire : tester la taille de la file d'attente
-        // et régler le débit en fonction
+        // et rÃ©gler le dÃ©bit en fonction
 
         // requete sur la table des utilisateurs
         $sql = $queries['select'];
@@ -317,7 +318,7 @@ if (empty($renew) && $execute) {
             $sta->bindParam(1, $idvalue);
         }
 
-        // début 
+        // dÃ©but 
         $time_start = microtime(true);
 
         //  boucle
@@ -388,7 +389,7 @@ if (empty($renew) && $execute) {
             $success = false;
             if (empty($nosend)) {
 
-                // faut-il un message personnalisé ?
+                // faut-il un message personnalisÃ© ?
                 if(TEMPLATE_MSG) {
 
                     // composition d'un nouveau message
@@ -441,7 +442,7 @@ if (empty($renew) && $execute) {
         $time_exec = $time_end - $time_start;
         
         // fin de l'envoi
-        echo "=======> Envoi termine en ".$utils->timeExec($time_start,$time_end)." (".$count_success."/".$i.") !\n";
+        echo "=======> Envoi termine en ".$utils->getTimeExec($time_start,$time_end)." (".$count_success."/".$i.") !\n";
 
     }
 
