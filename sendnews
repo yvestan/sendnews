@@ -333,7 +333,7 @@ if (empty($renew) && $execute) {
             
             // on verifie la validite syntaxique de l'adresse mail
             if (!$utils->isEmailSyntaxValid($email)) {
-                   if(!$silent) {
+                   if(empty($silent)) {
                     echo "-> Adresse ".$row[EMAIL_USERS]." ".$row[ID_USERS]." non valide\n";
                 }
                 // TODO : marquer l'email invalide dans la base ou dans un fichier de logs
@@ -419,7 +419,7 @@ if (empty($renew) && $execute) {
 
             }
 
-            if (empty($noupdate) && !empty($queries['update']) && ($success || $nosend)) {
+            if (empty($noupdate) && !empty($queries['update']) && (!empty($success) || !empty($nosend))) {
                 // on met a jour le flag "envoye"
                 $idvalue = $row[ID_USERS];
                 $sta->execute();
