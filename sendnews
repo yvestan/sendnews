@@ -176,7 +176,7 @@ $swiftdir = $dir_name.'/swiftmailer/lib/';
 require $swiftdir.'Swift.php';
 
 // envoi
-if (empty($renew) && $execute) {
+if (empty($renew) && !empty($execute)) {
 
     // si on a precise un fichier HTML
     if(!empty($defaut_file)) {
