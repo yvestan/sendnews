@@ -487,7 +487,7 @@ if(!empty($renew) && !empty($queries['renew'])) {
 
     if (strtolower($confirm) == 'o') {
         $num_dest = $db->exec($queries['renew']);
-        echo "=======> Le flag d'envoi de $count utilisateurs a bien ete reinitialise\n";
+        echo "=======> Le flag d'envoi de $num_dest utilisateurs a bien ete reinitialise\n";
     }
 }
 
