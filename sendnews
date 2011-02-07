@@ -157,8 +157,7 @@ if(!empty($subject_msg)) {
     }
 }
 
-//5.2.6-1+lenny9
-// bug avec rowCount
+//php 5.2.6-1+lenny9 => bug avec rowCount
 $php_bug = true;
 
 // si pas de variable (compatibilité)
@@ -331,7 +330,8 @@ if (empty($renew) && !empty($execute)) {
         $time_start = microtime(true);
 
         //  boucle
-        while($row = $res->fetch()) {
+        //while($row = $res->fetch()) {
+        foreach($rows_total as $row) {
 
             if (isset($limit) && $i >= $limit) {
                 break;
@@ -486,16 +486,7 @@ if(!empty($renew) && !empty($queries['renew'])) {
     $confirm = trim(fgets(STDIN));
 
     if (strtolower($confirm) == 'o') {
-
-        $res = $db->query($queries['renew']);
-
-        // nombre de destinataires
-        if($php_bug) {
-            $rows_total = $res->fetchAll();
-            $count = count($rows_total);
-        } else {
-            $count = $res->rowCount();
-        }
+        $num_dest = $db->exec($queries['renew']);
         echo "=======> Le flag d'envoi de $count utilisateurs a bien ete reinitialise\n";
     }
 }
