@@ -157,6 +157,9 @@ if(!empty($subject_msg)) {
     }
 }
 
+//php 5.2.6-1+lenny9 => bug avec rowCount
+$php_bug = true;
+
 // si pas de variable (compatibilité)
 if(!defined('TEMPLATE_MSG')) {
     define('TEMPLATE_MSG',false);
@@ -176,7 +179,7 @@ $swiftdir = $dir_name.'/swiftmailer/lib/';
 require $swiftdir.'Swift.php';
 
 // envoi
-if (empty($renew) && $execute) {
+if (empty($renew) && !empty($execute)) {
 
     // si on a precise un fichier HTML
     if(!empty($defaut_file)) {
@@ -286,7 +289,12 @@ if (empty($renew) && $execute) {
         $res = $db->query($sql);
 
         // nombre de destinataires
-        $num_dest = $res->rowCount();
+        if($php_bug) {
+            $rows_total = $res->fetchAll();
+            $num_dest = count($rows_total);
+        } else {
+            $num_dest = $res->rowCount();
+        }
 
         if($num_dest>0) {
             echo "Envoi du message ".$file_name." a ".$num_dest." utilisateurs presents dans la table ".USERS."\n";
@@ -322,7 +330,8 @@ if (empty($renew) && $execute) {
         $time_start = microtime(true);
 
         //  boucle
-        while($row = $res->fetch()) {
+        //while($row = $res->fetch()) {
+        foreach($rows_total as $row) {
 
             if (isset($limit) && $i >= $limit) {
                 break;
@@ -477,12 +486,8 @@ if(!empty($renew) && !empty($queries['renew'])) {
     $confirm = trim(fgets(STDIN));
 
     if (strtolower($confirm) == 'o') {
-
-        $res = $db->query($queries['renew']);
-
-        // nombre de destinataires
-        $count = $res->rowCount();
-        echo "=======> Le flag d'envoi de $count utilisateurs a bien ete reinitialise\n";
+        $num_dest = $db->exec($queries['renew']);
+        echo "=======> Le flag d'envoi de $num_dest utilisateurs a bien ete reinitialise\n";
     }
 }
 
@@ -497,7 +502,12 @@ if (!empty($query)) {
     $res = $db->query($sql);
 
     // nombre de destinataires
-    $num_dest = $res->rowCount();
+    if($php_bug) {
+        $rows_total = $res->fetchAll();
+        $num_dest = count($rows_total);
+    } else {
+        $num_dest = $res->rowCount();
+    }
     
     echo "$num_dest destinataires\n";
 
