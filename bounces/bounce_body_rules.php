@@ -101,6 +101,18 @@ function bmhBodyRules($body,$structure,$debug_mode=false){
         $result['email']=$match[1];
     }
 
+    //The following address(es) failed) YVES
+    // rule : mailbox unknow;
+    // sample :
+    //    Delivery to the following recipients failed.
+    //
+    //       squallhaur@hotmail.com
+    elseif (preg_match ("/address\(es\) failed\S*\s+(\S+@\S+\w)\s/is",$body,$match)){
+        $result['rule_cat']='unknown';
+        $result['rule_no']='0013';
+        $result['email']=$match[1];
+    }
+
     // rule : mailbox unknow;
     // sample :
     //A message that you sent could not be delivered to one or more of its^M
