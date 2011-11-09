@@ -19,6 +19,12 @@
 class Sendnews_Utils
 {
 
+    // nom de la config du message
+    public $config_name = null;
+
+    // fichier utilisé
+    public $file_name  = null;
+
     // {{{ setTemplateMsg()
 
    /** Remplacement de variable
@@ -40,7 +46,7 @@ class Sendnews_Utils
 
     // }}}
 
-    /// {{{ getTimeExec()
+    // {{{ getTimeExec()
 
    /** Calcul le temps d'execution du script
     *
@@ -60,7 +66,7 @@ class Sendnews_Utils
 
     // }}}
 
-    /// {{{ isEmailSyntaxValid()
+    // {{{ isEmailSyntaxValid()
 
    /** Contrôle la validité de l'adresse email
     *
@@ -94,5 +100,34 @@ class Sendnews_Utils
 
     // }}}
 
+    // {{{ display()
+
+   /** Afficher les retours du script
+    *
+    * Afffiche les retours du script soit sur STDIN soit dans un fichier
+    *
+    * @access   public
+    * @return   mixed
+    * @param    string  $msg         Message
+    * @param    array  $values      Valeur de l'enregistrement
+    */
+    public function display($msg,$log_file=null,$rtl="\n",$simple=false)
+    {
+        // formater le log
+        if(!$simple) {
+            $msg_log = '['.$this->config_name.']['.date('Y-m-d H:i:s').']['.$this->file_name.'] '.$msg.$rtl;
+        } else {
+            $msg_log = $msg.$rtl;
+        }
+
+        if($log_file && file_exists($log_file)) {
+            file_put_contents($log_file, $msg_log, FILE_APPEND);
+        } else {
+            echo $msg_log;
+        }
+    }
+
+    // }}}
+    
 }
 ?>
