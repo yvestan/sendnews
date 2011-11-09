@@ -13,19 +13,18 @@
  * - En tournant sur plusieurs systèmes d'envoi
  * ...
  *
- * Pour la configuration, référez vous à la documentation de SwfitMailer :
- * http://www.swiftmailer.org/wikidocs/ (The connections).
+ * Pour la configuration, référez vous à la documentation de SwiftMailer :
+ * http://swiftmailer.org/docs/sending.html
  *
  */
 
-// l'objet doit s'appeller $swift
-// exemple :
-//
-//  require_once $swiftdir.'Swift/Connection/SMTP.php';
-//  $smtp = new Swift_Connection_SMTP('smtp.exemple.tld', Swift_Connection_SMTP::PORT_SECURE, Swift_Connection_SMTP::ENC_TLS);
-//
-//  $smtp->setUsername('username');
-//  $smtp->setpassword('password');
-//
-//  $swift =& new Swift($smtp);
+// l'objet doit s'appeller $transport
+
+// envoi avec un smtp authentifié sur le port 587
+/*$transport = Swift_SmtpTransport::newInstance('smtp.gmail.com', 587)
+    ->setUsername('username')
+    ->setPassword('password');
+
+//  envoi avec le serveur local
+//$transport = Swift_SmtpTransport::newInstance("127.0.0.1", 25);
 ?>
